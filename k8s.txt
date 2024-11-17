@@ -1,0 +1,149 @@
+Subindo a Imagem para o Google Container Registry (GCR)
+Faça login no GCP:
+
+bash
+Copiar código
+gcloud auth login
+Configure o projeto no GCP:
+
+bash
+Copiar código
+gcloud config set project [SEU_PROJETO_ID]
+Habilite o Container Registry:
+
+bash
+Copiar código
+gcloud services enable containerregistry.googleapis.com
+Tag e faça o push da imagem para o GCR:
+
+bash
+Copiar código
+docker tag meu-app-node gcr.io/[SEU_PROJETO_ID]/meu-app-node:v1
+docker push gcr.io/[SEU_PROJETO_ID]/meu-app-node:v1
+3. Configurando o Kubernetes com PV no GCP
+Habilite o serviço Kubernetes no GCP:
+
+bash
+Copiar código
+gcloud services enable container.googleapis.com
+Crie um cluster Kubernetes:
+
+bash
+Copiar código
+gcloud container clusters create meu-cluster \
+  --num-nodes=3 \
+  --zone=us-central1-c
+Conecte-se ao cluster:
+
+bash
+Copiar código
+gcloud container clusters get-credentials meu-cluster --zone us-central1-c
+Crie um Persistent Disk no GCP:
+
+bash
+Copiar código
+gcloud compute disks create meu-disco \
+  --size=10GB \
+  --zone=us-central1-c
+Crie o Manifesto do Persistent Volume (PV): Salve como pv.yaml:
+
+yaml
+Copiar código
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: meu-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  gcePersistentDisk:
+    pdName: meu-disco
+    fsType: ext4
+Crie o Manifesto do Persistent Volume Claim (PVC): Salve como pvc.yaml:
+
+yaml
+Copiar código
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: meu-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+Aplique ambos os manifestos:
+
+bash
+Copiar código
+kubectl apply -f pv.yaml
+kubectl apply -f pvc.yaml
+Crie o Deployment no Kubernetes: Salve como deployment.yaml:
+
+yaml
+Copiar código
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meu-app-node
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: meu-app-node
+  template:
+    metadata:
+      labels:
+        app: meu-app-node
+    spec:
+      containers:
+      - name: meu-app-node
+        image: gcr.io/[SEU_PROJETO_ID]/meu-app-node:v1
+        ports:
+        - containerPort: 3000
+        volumeMounts:
+        - mountPath: "/data"
+          name: meu-volume
+      volumes:
+      - name: meu-volume
+        persistentVolumeClaim:
+          claimName: meu-pvc
+Aplique o manifesto:
+
+bash
+Copiar código
+kubectl apply -f deployment.yaml
+Exponha o Serviço: Crie o arquivo service.yaml:
+
+yaml
+Copiar código
+apiVersion: v1
+kind: Service
+metadata:
+  name: meu-app-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: meu-app-node
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+Aplique o manifesto:
+
+bash
+Copiar código
+kubectl apply -f service.yaml
+4. Verificando o Deploy
+Verifique os Pods e Serviços:
+
+bash
+Copiar código
+kubectl get pods
+kubectl get svc
+Acesse a aplicação: O External IP do serviço estará disponível ao executar kubectl get svc. Acesse o IP no navegador.
+
+Obs. Fiz o passo a passo pois nao criei a conta no gcp 	
